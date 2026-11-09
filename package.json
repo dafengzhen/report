@@ -1,0 +1,113 @@
+{
+  "name": "@dafengzhen/report",
+  "version": "0.1.0",
+  "description": "A lightweight, extensible TypeScript library for reporting events, logs, and errors in browsers and Node.js.",
+  "keywords": [
+    "error-reporting",
+    "event-tracking",
+    "logging",
+    "observability",
+    "reporting",
+    "telemetry",
+    "typescript"
+  ],
+  "homepage": "https://github.com/dafengzhen/report#readme",
+  "bugs": {
+    "url": "https://github.com/dafengzhen/report/issues"
+  },
+  "license": "MIT",
+  "author": "dafengzhen",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dafengzhen/report.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/cjs/modern/index.cjs",
+  "module": "./dist/esm/modern/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/modern/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/cjs/modern/index.cjs"
+      },
+      "default": "./dist/esm/modern/index.js"
+    },
+    "./legacy": {
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/legacy/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/cjs/legacy/index.cjs"
+      },
+      "default": "./dist/esm/legacy/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org",
+    "tag": "latest"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build:example": "vite build",
+    "preview": "vite preview",
+    "build": "run-s clean build:bundle build:types",
+    "build:bundle": "node scripts/build.mjs",
+    "build:types": "node scripts/build-types.mjs",
+    "build:modern": "node scripts/build.mjs --group modern",
+    "build:legacy": "node scripts/build.mjs --group legacy",
+    "build:dev": "node scripts/build.mjs --group dev",
+    "clean": "node scripts/clean.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "oxlint --fix",
+    "lint:check": "oxlint",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint:fmt": "run-s lint fmt",
+    "check:package": "publint",
+    "check": "run-s typecheck lint:check fmt:check test build check:package",
+    "commit": "commit",
+    "prepare": "husky",
+    "prepublishOnly": "run-s check"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@commitlint/prompt-cli": "^21.2.4",
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint-plugin-perfectionist": "^5.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "npm-run-all2": "^9.0.4",
+    "oxfmt": "^0.76.0",
+    "oxlint": "^1.91.0",
+    "publint": "^0.3.25",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5",
+    "vitest": "^5.1.0"
+  },
+  "lint-staged": {
+    "*.{cjs,js,jsx,mjs,ts,tsx}": "oxlint --fix",
+    "*": "oxfmt --no-error-on-unmatched-pattern"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}
