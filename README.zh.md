@@ -5,7 +5,7 @@
 
 [English](./README.md)
 
-轻量的 TypeScript 上报库，适用于浏览器和 Node.js，支持上报事件、日志和错误。
+轻量的 TypeScript 上报库，适用于浏览器、Node.js 和微信小程序，支持上报事件、日志和错误。
 
 ```sh
 npm install @dafengzhen/report
@@ -32,6 +32,44 @@ reporter.use(createRedactionPlugin(['token', 'authorization']));
 
 await reporter.event('checkout_started', { cartSize: 2 });
 ```
+
+## 微信小程序
+
+使用 `wechatRequestTransport()` 通过 `wx.request` 上报，默认以 `POST` 发送 JSON。请使用 HTTPS 上报地址，并在微信公众平台将其加入小程序的 `request` 合法域名。
+
+```ts
+import { createReporter, wechatRequestTransport } from '@dafengzhen/report';
+
+const reporter = createReporter({
+  transport: wechatRequestTransport({ url: 'https://example.com/reports' }),
+});
+
+await reporter.event('checkout_started', { cartSize: 2 });
+```
+
+可通过 `headers` 设置请求头，通过 `timeout` 设置请求超时时间（毫秒），也可传入 `batch` 启用批量上报。网络错误和非 2xx 响应会使上报返回 `failed`。
+
+## 批量上报
+
+在 `createFetchTransport()` 或 `wechatRequestTransport()` 中传入 `batch`，即可在一次请求中发送多条记录。请求体默认是记录组成的 JSON 数组，也可以通过 `batch.serialize` 自定义格式。
+
+```ts
+const reporter = createReporter({
+  transport: createFetchTransport({
+    batch: { intervalMs: 1000, maxSize: 10 },
+    url: 'https://example.com/reports',
+  }),
+});
+
+const reports = [reporter.event('checkout_started'), reporter.log('info', 'Cart loaded')];
+await reporter.flush();
+const results = await Promise.all(reports);
+```
+
+- 达到 `maxSize`（默认 10 条），或距本批首条记录入队经过 `intervalMs`（默认 1000 毫秒）后，自动发送该批次。
+- `flush()` 立即发送已入队的记录，并等待已发起的批次。仍在执行异步 `beforeSend` 钩子的记录会在钩子完成后入队。
+- 每条上报按发送结果返回状态。批次请求失败时，该批记录均返回 `failed`，等待该批次的 `flush()` 也会拒绝。
+- `destroy()` 清除定时器并丢弃仍在队列中的记录，这些记录返回 `failed`。已经发起的批次按请求结果结束。
 
 ## 上报名称
 

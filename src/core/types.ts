@@ -100,7 +100,7 @@ export interface ReportTransport {
   destroy?(): Promise<void> | void;
   /** Optional explicit flush for transports that buffer records. No timer is implied. */
   flush?(): Promise<void>;
-  /** Must only transmit the record passed to this method. */
+  /** Resolves when the supplied record has been sent, optionally as part of a batch. */
   send(record: ReportRecord): Promise<void>;
 }
 

@@ -24,8 +24,16 @@ export { createSamplingPlugin } from './plugins/sampling.js';
 export { createFetchTransport } from './transports/fetch-transport.js';
 
 export type {
+  FetchBatchOptions,
   FetchInitLike,
   FetchLike,
   FetchResponseLike,
   FetchTransportOptions,
 } from './transports/fetch-transport.js';
+
+export { wechatRequestTransport } from './transports/wechat-request.js';
+export type {
+  WechatRequestLike,
+  WechatRequestOptions,
+  WechatRequestTransportOptions,
+} from './transports/wechat-request.js';
