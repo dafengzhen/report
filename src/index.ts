@@ -18,8 +18,12 @@ export type {
 
 export { createContextPlugin } from './plugins/context.js';
 export { createFilterPlugin } from './plugins/filter.js';
+export { createLogLevelPlugin } from './plugins/log-level.js';
+export { createRateLimitPlugin } from './plugins/rate-limit.js';
+export type { RateLimitPluginOptions } from './plugins/rate-limit.js';
 export { createRedactionPlugin } from './plugins/redaction.js';
 export { createSamplingPlugin } from './plugins/sampling.js';
+export { createTagsPlugin } from './plugins/tags.js';
 
 export { createFetchTransport } from './transports/fetch-transport.js';
 

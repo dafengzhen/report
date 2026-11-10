@@ -81,14 +81,25 @@ const results = await Promise.all(reports);
 
 ## 内置插件
 
-| 工厂函数                        | 用途                                                                                                                               |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `createFilterPlugin(predicate)` | 仅保留同步或异步条件返回 `true` 的上报。                                                                                           |
-| `createSamplingPlugin(rate)`    | 对每条上报独立采样，`0` 表示全部丢弃，`1` 表示全部保留。                                                                           |
-| `createContextPlugin(defaults)` | 补充默认上下文。同名字段优先使用单次上报的值，其次使用实例上下文。                                                                 |
-| `createRedactionPlugin(fields)` | 在 `data` 和 `context` 的普通对象及数组中按字段名脱敏，忽略大小写，替换值为 `[REDACTED]`。若其他插件会添加字段，请先注册这些插件。 |
+| 工厂函数                                          | 用途                                                                                                                               |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `createFilterPlugin(predicate)`                   | 仅保留同步或异步条件返回 `true` 的上报。                                                                                           |
+| `createSamplingPlugin(rate)`                      | 对每条上报独立采样，`0` 表示全部丢弃，`1` 表示全部保留。                                                                           |
+| `createContextPlugin(defaults)`                   | 补充默认上下文。同名字段优先使用单次上报的值，其次使用实例上下文。                                                                 |
+| `createRedactionPlugin(fields)`                   | 在 `data` 和 `context` 的普通对象及数组中按字段名脱敏，忽略大小写，替换值为 `[REDACTED]`。若其他插件会添加字段，请先注册这些插件。 |
+| `createLogLevelPlugin(minLevel)`                  | 保留达到最低级别的日志，级别从低到高依次为 `debug`、`info`、`warn`、`error`、`fatal`。其他类型的上报和没有级别的日志直接通过。     |
+| `createRateLimitPlugin({ maxReports, windowMs })` | 在每个固定时间窗口内最多放行 `maxReports` 条上报。两个参数均为正安全整数。                                                         |
+| `createTagsPlugin(tags)`                          | 在单次上报的标签之后追加默认标签，重复标签仅保留首次出现的位置。传入空数组时保留原标签。                                           |
 
 插件在实例的 `beforeSend` 钩子之后按注册顺序执行。调用 `reporter.use()` 的返回函数即可卸载插件。
+
+```ts
+reporter.use(createLogLevelPlugin('warn'));
+reporter.use(createTagsPlugin(['storefront']));
+reporter.use(createRateLimitPlugin({ maxReports: 100, windowMs: 60_000 }));
+```
+
+首条上报到达限流插件时开始计时。插件放行的上报会占用配额，即使后续钩子丢弃了该上报，或发送失败。超出配额的上报返回 `skipped`，原因为 `filtered`。如果多个上报实例需要独立配额，请分别创建限流插件。
 
 ## 许可证
 

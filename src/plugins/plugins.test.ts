@@ -1,13 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReportRecord } from '../index.js';
 
 import {
   createContextPlugin,
   createFilterPlugin,
+  createLogLevelPlugin,
+  createRateLimitPlugin,
   createRedactionPlugin,
   createReporter,
   createSamplingPlugin,
+  createTagsPlugin,
 } from '../index.js';
 
 describe('reporter plugins', () => {
@@ -89,5 +92,104 @@ describe('reporter plugins', () => {
     expect(Object.getOwnPropertyDescriptor(output, '__proto__')?.value).toEqual({
       token: '[REDACTED]',
     });
+  });
+
+  it('filters logs below the minimum while passing other report types and unlevelled logs', async () => {
+    const send = vi.fn<(record: ReportRecord) => Promise<void>>(async () => {});
+    const reporter = createReporter({ transport: { send } });
+    reporter.use(createLogLevelPlugin('warn'));
+
+    await expect(reporter.log('debug', 'debug')).resolves.toMatchObject({ reason: 'filtered' });
+    await expect(reporter.log('info', 'info')).resolves.toMatchObject({ reason: 'filtered' });
+    await reporter.log('warn', 'warn');
+    await reporter.log('error', 'error');
+    await reporter.log('fatal', 'fatal');
+    await reporter.event('checkout', undefined, { level: 'debug' });
+    await reporter.error(new Error('checkout failed'), undefined, { level: 'debug' });
+    await reporter.report('unlevelled', undefined, { type: 'log' });
+
+    expect(send.mock.calls.map(([record]) => [record.type, record.level])).toEqual([
+      ['log', 'warn'],
+      ['log', 'error'],
+      ['log', 'fatal'],
+      ['event', 'debug'],
+      ['error', 'debug'],
+      ['log', undefined],
+    ]);
+  });
+
+  it('appends default tags in order without duplicates or input mutation', async () => {
+    const send = vi.fn<(record: ReportRecord) => Promise<void>>(async () => {});
+    const reporter = createReporter({ transport: { send } });
+    const defaults = ['checkout', 'production', 'production'];
+    const tags = ['mobile', 'checkout', 'mobile'];
+    reporter.use(createTagsPlugin(defaults));
+    defaults.push('later');
+
+    await reporter.event('checkout', undefined, { tags });
+    await reporter.event('ready');
+
+    expect(send.mock.calls.map(([record]) => record.tags)).toEqual([
+      ['mobile', 'checkout', 'production'],
+      ['checkout', 'production'],
+    ]);
+    expect(tags).toEqual(['mobile', 'checkout', 'mobile']);
+  });
+});
+
+describe('rate limit plugin', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('caps concurrent reports, then opens a new window at the time boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const send = vi.fn<(record: ReportRecord) => Promise<void>>(async () => {});
+    const reporter = createReporter({ transport: { send } });
+    reporter.use(createFilterPlugin((record) => record.name !== 'ignored'));
+    reporter.use(createRateLimitPlugin({ maxReports: 2, windowMs: 1000 }));
+
+    await reporter.event('ignored');
+    const results = await Promise.all([
+      reporter.event('first'),
+      reporter.event('second'),
+      reporter.event('third'),
+    ]);
+    expect(results).toMatchObject([
+      { status: 'sent' },
+      { status: 'sent' },
+      { reason: 'filtered', status: 'skipped' },
+    ]);
+
+    vi.setSystemTime(999);
+    await expect(reporter.event('too soon')).resolves.toMatchObject({ reason: 'filtered' });
+    vi.setSystemTime(1000);
+    await expect(reporter.event('next window')).resolves.toMatchObject({ status: 'sent' });
+    expect(send.mock.calls.map(([record]) => record.name)).toEqual([
+      'first',
+      'second',
+      'next window',
+    ]);
+  });
+
+  it('opens a new window if the clock moves backwards', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    const reporter = createReporter({ transport: { send: async () => {} } });
+    reporter.use(createRateLimitPlugin({ maxReports: 1, windowMs: 1000 }));
+
+    await expect(reporter.event('first')).resolves.toMatchObject({ status: 'sent' });
+    vi.setSystemTime(0);
+    await expect(reporter.event('after clock change')).resolves.toMatchObject({ status: 'sent' });
+  });
+
+  it('rejects invalid limits and window durations', () => {
+    for (const value of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => createRateLimitPlugin({ maxReports: value, windowMs: 1000 })).toThrow(
+        RangeError,
+      );
+      expect(() => createRateLimitPlugin({ maxReports: 1, windowMs: value })).toThrow(RangeError);
+    }
   });
 });

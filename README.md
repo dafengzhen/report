@@ -81,14 +81,25 @@ By default, `event()` and `report()` use the supplied name, while `error()` and 
 
 ## Built-in plugins
 
-| Factory                         | Behavior                                                                                                                                                                                           |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createFilterPlugin(predicate)` | Keeps reports when the sync or async predicate returns `true`.                                                                                                                                     |
-| `createSamplingPlugin(rate)`    | Samples each report independently. The rate ranges from `0` (drop all) to `1` (keep all).                                                                                                          |
-| `createContextPlugin(defaults)` | Adds defaults. Context set on the reporter takes precedence, and per-report context has the highest priority.                                                                                      |
-| `createRedactionPlugin(fields)` | Matches field names case-insensitively and replaces values with `[REDACTED]` in plain objects and arrays inside `data` and `context`. Register it after plugins that add fields to those payloads. |
+| Factory                                           | Behavior                                                                                                                                                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createFilterPlugin(predicate)`                   | Keeps reports when the sync or async predicate returns `true`.                                                                                                                                     |
+| `createSamplingPlugin(rate)`                      | Samples each report independently. The rate ranges from `0` (drop all) to `1` (keep all).                                                                                                          |
+| `createContextPlugin(defaults)`                   | Adds defaults. Context set on the reporter takes precedence, and per-report context has the highest priority.                                                                                      |
+| `createRedactionPlugin(fields)`                   | Matches field names case-insensitively and replaces values with `[REDACTED]` in plain objects and arrays inside `data` and `context`. Register it after plugins that add fields to those payloads. |
+| `createLogLevelPlugin(minLevel)`                  | Keeps logs at or above the minimum level (`debug`, `info`, `warn`, `error`, `fatal` in ascending order). Other report types and logs without a level pass through.                                 |
+| `createRateLimitPlugin({ maxReports, windowMs })` | Admits up to `maxReports` records per fixed window. Both options are positive safe integers.                                                                                                       |
+| `createTagsPlugin(tags)`                          | Appends default tags after per-report tags and keeps the first occurrence of each tag. An empty list leaves tags as supplied.                                                                      |
 
 Plugins run in registration order after the reporter's `beforeSend` hook. `reporter.use()` returns a function that unregisters the plugin.
+
+```ts
+reporter.use(createLogLevelPlugin('warn'));
+reporter.use(createTagsPlugin(['storefront']));
+reporter.use(createRateLimitPlugin({ maxReports: 100, windowMs: 60_000 }));
+```
+
+Each rate limiter starts its window when the first record reaches it. Records admitted by the limiter count toward the quota even if a later hook drops them or sending fails. Reports over the limit return `skipped` with the reason `filtered`. Create a separate limiter for each reporter that needs its own quota.
 
 ## License
 
